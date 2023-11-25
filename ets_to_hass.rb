@@ -135,6 +135,8 @@ class ConfigurationImporter
     if space.key?(space_type)
       # get floor when we have it
       info[:floor] = space['Name'] if space['Type'].eql?('Floor')
+      # get buildingpart when we have it
+      info[:buildingpart] = space['Name'] if space['Type'].eql?('BuildingPart')
       space[space_type].each { |s| process_space(s, space_type, info) }
     end
     # Functions are objects
@@ -177,7 +179,7 @@ class ConfigurationImporter
       new_obj = o[:custom].key?(:ha_init) ? o[:custom][:ha_init] : {}
       unless new_obj.key?('name')
         new_obj['name'] = if true && @opts[:full_name]
-                            "#{o[:name]} #{o[:room]}"
+                            "#{o[:buildingpart]} #{o[:floor]} #{o[:room]} #{o[:name]}"
                           else
                             o[:name]
                           end
@@ -191,11 +193,23 @@ class ConfigurationImporter
           case o[:type]
           when :switchable_light, :dimmable_light then 'light'
           when :sun_protection then 'cover'
-          when :custom, :heating_continuous_variable, :heating_floor, :heating_radiator, :heating_switching_variable
+          when :custom
+            if not o[:name].include?('|')
+              @logger.warn("custom dynamic function type not implemented with 'my object name |<ha_obj_type>' #{o[:name]}/#{o[:room]}: #{o[:type]}")
+              next
+            end
+            # get ha_type from custom name: "my awesome |switch" -> switch
+            pos_from = o[:name].rindex("|") + 1
+            custom_dynamic_ha_obj_type = o[:name][pos_from..-1]
+            # remove custom dynamic ha_type from new object name
+            new_name = new_obj['name'].gsub('|' + custom_dynamic_ha_obj_type, '').strip
+            new_obj['name'].replace(new_name)
+            custom_dynamic_ha_obj_type
+          when :heating_continuous_variable, :heating_floor, :heating_radiator, :heating_switching_variable
             @logger.warn("function type not implemented for #{o[:name]}/#{o[:room]}: #{o[:type]}")
             next
           else @logger.error("function type not supported for #{o[:name]}/#{o[:room]}, please report: #{o[:type]}")
-               next
+            next
           end
         end
       # process all group addresses in function
@@ -207,6 +221,32 @@ class ConfigurationImporter
         ha_address_type =
           if ga[:custom].key?(:ha_address_type)
             ga[:custom][:ha_address_type]
+          #
+          # ha_address_type mapping for custom ga based on ga name: 'my name |<ha_address_type>'
+          # for example: "my switchable socket |state_address"
+          #
+          elsif (o[:type].eql?(:custom) && (ga[:name].include? '|'))
+            pos_from = ga[:name].rindex("|") + 1
+            custom_dynamic_ha_address_type = ga[:name][pos_from..-1]
+            custom_dynamic_ha_address_type
+          #
+          # Add sensor type specific gas based on its datapoint
+          #
+          elsif (ha_obj_type == 'sensor')
+            case ga[:datapoint]
+            when '9.001' # temperature
+              new_obj['type'] = 'temperature'
+              new_obj['sync_state'] = 'every 60'
+            when '9.007' # humidity
+              new_obj['type'] = 'humidity'
+            when '7.013' # brightness
+              new_obj['type'] = 'brightness'
+            when '9.021' # current
+              new_obj['type'] = 'current'
+            when '9.020' # voltage
+              new_obj['type'] = 'voltage'
+            end
+            'state_address'
           else
             case ga[:datapoint]
             when '1.001' then 'address' # switch on/off or state
@@ -220,8 +260,22 @@ class ConfigurationImporter
             when '5.001' # percentage 0-100
               # custom code tells what is state
               case ha_obj_type
-              when 'light' then 'brightness_address'
-              when 'cover' then 'position_address'
+              when 'light'
+                if ! ga[:name].include? '|'
+                  @logger.warn("custom dynamic light ha address type not implemented with 'my address name |<ha_address_type>' for #{o[:name]}/#{o[:room]}: #{o[:type]}")
+                  next
+                end
+                pos_from = ga[:name].rindex("|") + 1
+                custom_dynamic_light_ha_address_type = ga[:name][pos_from..-1]
+                custom_dynamic_light_ha_address_type
+              when 'cover'
+                if ! ga[:name].include? '|'
+                  @logger.warn("custom dynamic cover ha address type not implemented with 'my address name |<ha_address_type>' for #{o[:name]}/#{o[:room]}: #{o[:type]}")
+                  next
+                end
+                pos_from = ga[:name].rindex("|") + 1
+                custom_dynamic_cover_ha_address_type = ga[:name][pos_from..-1]
+                custom_dynamic_cover_ha_address_type
               else @logger.warn("#{ga[:address]}(#{ha_obj_type}:#{ga[:datapoint]}:#{ga[:name]}): no mapping for datapoint #{ga[:datapoint]}")
                    next
               end
@@ -231,13 +285,17 @@ class ConfigurationImporter
               next
             end
           end
-        if ha_address_type.nil?
+                if ha_address_type.nil?
           @logger.warn("#{ga[:address]}(#{ha_obj_type}:#{ga[:datapoint]}:#{ga[:name]}): unexpected nil property name")
           next
         end
         if new_obj.key?(ha_address_type)
           @logger.error("#{ga[:address]}(#{ha_obj_type}:#{ga[:datapoint]}:#{ga[:name]}): ignoring for #{ha_address_type} already set with #{new_obj[ha_address_type]}")
           next
+        end
+        # Add addtional move_short_address for cover which points to stop_address ga
+        if (ha_obj_type == 'cover' && ha_address_type == 'stop_address')
+          new_obj['move_short_address'] = ga[:address]
         end
         new_obj[ha_address_type] = ga[:address]
       end
