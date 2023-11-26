@@ -165,6 +165,33 @@ When ETS **Functions** are found, the script will populate the `ob` Hash.
 * `:heating_switching_variable`
 * `:heating_continuous_variable`
 
+### Custom functions with HA device type tag
+
+You can define custom functions in ETS with the HA device type tag in the name:
+
+    "<custom function name> |<ha device type>"
+
+For example to map to a [switch](https://www.home-assistant.io/integrations/knx/#switch) you have to use this custom function name:
+
+    "my switch name |switch"
+
+The \|switch will be removed from the name.
+
+### Group addresses with HA object type tag
+
+For example :dimmable_light and :sun_protection have two group addresses with the same datatype and can't be automatically mapped.
+
+You can add a tag to the group address name to define their HA object type:
+
+    "custom group address name |<ha object type>"
+
+For example to map a light device addresses to brightness_address and brightness_state_address:
+
+    "light kitchen |brightness_address"
+    "light kitchen |brightness_state_address"
+
+For the other group addresses of light kitchen the tags are not necessary and optional.
+
 ## Custom method
 
 If No building with **Functions** was created in the project, then the tool cannot guess which set of Group Addresses refer to the same HA device.

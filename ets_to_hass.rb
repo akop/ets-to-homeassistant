@@ -409,7 +409,6 @@ class ConfigurationImporter
 
               next # dimming control: used by buttons
             when '5.001' # percentage 0-100
-              # custom code tells what is state
               case ha_obj_type
               when 'light'
                 if ! ga[:name].include? '|'
