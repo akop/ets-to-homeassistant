@@ -204,6 +204,33 @@ The type of **ETS Function** is identified by a name (in ETS project file it is 
 * `:heating_switching_variable`
 * `:heating_continuous_variable`
 
+### Custom functions with HA device type tag
+
+You can define custom functions in ETS with the HA device type tag in the name:
+
+    "<custom function name> |<ha device type>"
+
+For example to map to a [switch](https://www.home-assistant.io/integrations/knx/#switch) you have to use this custom function name:
+
+    "my switch name |switch"
+
+The \|switch will be removed from the name.
+
+### Group addresses with HA object type tag
+
+For example :dimmable_light and :sun_protection have two group addresses with the same datatype and can't be automatically mapped.
+
+You can add a tag to the group address name to define their HA object type:
+
+    "custom group address name |<ha object type>"
+
+For example to map a light device addresses to brightness_address and brightness_state_address:
+
+    "light kitchen |brightness_address"
+    "light kitchen |brightness_state_address"
+
+For the other group addresses of light kitchen the tags are not necessary and optional.
+
 ## Custom method
 
 If the **KNX Data Point Type** of a **KNX Group Address** is not defined in the ETS project, then the tool cannot guess which group address is e.g. for On/Off, or for dimming value.
