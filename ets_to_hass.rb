@@ -385,6 +385,12 @@ class ConfigurationImporter
           if ga[:custom].key?(:ha_address_type)
             ga[:custom][:ha_address_type]
           #
+          # Add sensor type specific gas based on its datapoint
+          #
+          elsif (ha_obj_type == 'sensor')
+            new_obj['type'] = ETS_GA_DATAPOINT_2_HA_SENSOR_ADDRESS_TYPE[ga[:datapoint]]
+            'state_address'
+          #
           # ha_address_type mapping for custom ga based on ga name: 'my name |<ha_address_type>'
           # for example: "my switchable socket |state_address"
           #
@@ -392,18 +398,13 @@ class ConfigurationImporter
             pos_from = ga[:name].rindex("|") + 1
             custom_dynamic_ha_address_type = ga[:name][pos_from..-1]
             custom_dynamic_ha_address_type
-          #
-          # Add sensor type specific gas based on its datapoint
-          #
-          elsif (ha_obj_type == 'sensor')
-            new_obj['type'] = ETS_GA_DATAPOINT_2_HA_SENSOR_ADDRESS_TYPE[ga[:datapoint]]
-            'state_address'
           else
             case ga[:datapoint]
             when '1.001' then 'address' # switch on/off or state
+            when '1.002' then 'state_address' # bool - switch or binary-sensor state
             when '1.008' then 'move_long_address' # up/down
             when '1.010' then 'stop_address' # stop
-            when '1.011' then 'state_address' # switch state
+            when '1.011' then 'state_address' # switch or sensor state
             when '3.007'
               @logger.debug("#{ga[:address]}(#{ha_obj_type}:#{ga[:datapoint]}:#{ga[:name]}): ignoring datapoint")
 
@@ -427,25 +428,31 @@ class ConfigurationImporter
                 custom_dynamic_cover_ha_address_type = ga[:name][pos_from..-1]
                 custom_dynamic_cover_ha_address_type
               else @logger.warn("#{ga[:address]}(#{ha_obj_type}:#{ga[:datapoint]}:#{ga[:name]}): no mapping for datapoint #{ga[:datapoint]}")
-                   next
+                next
               end
             else
               @logger.warn("#{ga[:address]}(#{ha_obj_type}:#{ga[:datapoint]}:#{ga[:name]}): no mapping for datapoint #{ga[:datapoint]}")
-
               next
             end
           end
-                if ha_address_type.nil?
-          @logger.warn("#{ga[:address]}(#{ha_obj_type}:#{ga[:datapoint]}:#{ga[:name]}): unexpected nil property name")
+          if ha_address_type.nil?
+            @logger.warn("#{ga[:address]}(#{ha_obj_type}:#{ga[:datapoint]}:#{ga[:name]}): unexpected nil property name")
           next
+        end
+        # additional cover specific gas
+        if ha_obj_type == 'cover'
+          case ha_address_type
+          when 'stop_address' # Add addtional move_short_address for cover which points to stop_address ga
+            new_obj['move_short_address'] = ga[:address]
+          when 'position_state_address' # Add invert_position if set in ga name
+            if (ga[:name].include? 'invert_position')
+              new_obj['invert_position'] = true
+            end
+          end
         end
         if new_obj.key?(ha_address_type)
           @logger.error("#{ga[:address]}(#{ha_obj_type}:#{ga[:datapoint]}:#{ga[:name]}): ignoring for #{ha_address_type} already set with #{new_obj[ha_address_type]}")
           next
-        end
-        # Add addtional move_short_address for cover which points to stop_address ga
-        if (ha_obj_type == 'cover' && ha_address_type == 'stop_address')
-          new_obj['move_short_address'] = ga[:address]
         end
         new_obj[ha_address_type] = ga[:address]
       end
