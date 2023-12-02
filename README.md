@@ -231,6 +231,10 @@ For example to map a light device addresses to brightness_address and brightness
 
 For the other group addresses of light kitchen the tags are not necessary and optional.
 
+### group addresses with boolean flags
+
+Cover invert_position if there is invert_position in the ga name it will be set to true.
+
 ## Custom method
 
 If the **KNX Data Point Type** of a **KNX Group Address** is not defined in the ETS project, then the tool cannot guess which group address is e.g. for On/Off, or for dimming value.
