@@ -4,3 +4,7 @@
 *.ha.yaml
 *.linknx.xml
 .vscode
+knx_ets2hass.yaml
+sensortypes
+andi_specific.rb
+input.knxproj
