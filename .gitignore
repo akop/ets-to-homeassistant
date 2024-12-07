@@ -1,6 +1,7 @@
-/local/
-/Gemfile.lock
+/private/
 /tmp/
-*.ha.yaml
-*.linknx.xml
+*.gem
 .vscode
+/Gemfile.lock
+/.bundle/
+.gems_checked
