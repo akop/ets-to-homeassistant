@@ -5,3 +5,7 @@
 /Gemfile.lock
 /.bundle/
 .gems_checked
+knx_ets2hass.yaml
+sensortypes
+andi_specific.rb
+input.knxproj
